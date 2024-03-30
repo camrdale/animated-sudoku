@@ -3,9 +3,9 @@
 /test/
 custom-elements.json
 # top level source
-my-element.js
-my-element.js.map
-my-element.d.ts
-my-element.d.ts.map
+animated-sudoku.js
+animated-sudoku.js.map
+animated-sudoku.d.ts
+animated-sudoku.d.ts.map
 # only generated for size check
-my-element.bundled.js
+animated-sudoku.bundled.js
