@@ -1,4 +1,4 @@
-<!doctype html>
+<!DOCTYPE html>
 
 <html>
   <head>
@@ -8,15 +8,26 @@
     <script src="../node_modules/lit/polyfill-support.js"></script>
     <script type="module" src="../animated-sudoku.js"></script>
     <style>
-      p {
-        border: solid 1px blue;
-        padding: 8px;
+      html {
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        margin: 0;
+        padding: 4vmin 0 4vmin 0;
+        background: gray;
+
+        height: 90vh;
+
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        align-content: center;
       }
     </style>
   </head>
   <body>
-    <animated-sudoku>
-      <p>This is child content</p>
-    </animated-sudoku>
+    <animated-sudoku></animated-sudoku>
   </body>
 </html>

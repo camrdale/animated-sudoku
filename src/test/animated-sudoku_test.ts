@@ -22,7 +22,9 @@ suite('animated-sudoku', () => {
   });
 
   test('renders with a set name', async () => {
-    const el = await fixture(html`<animated-sudoku name="Test"></animated-sudoku>`);
+    const el = await fixture(
+      html`<animated-sudoku name="Test"></animated-sudoku>`
+    );
     assert.shadowDom.equal(
       el,
       `
@@ -34,7 +36,9 @@ suite('animated-sudoku', () => {
   });
 
   test('handles a click', async () => {
-    const el = (await fixture(html`<animated-sudoku></animated-sudoku>`)) as AnimatedSudoku;
+    const el = (await fixture(
+      html`<animated-sudoku></animated-sudoku>`
+    )) as AnimatedSudoku;
     const button = el.shadowRoot!.querySelector('button')!;
     button.click();
     await el.updateComplete;
@@ -49,7 +53,9 @@ suite('animated-sudoku', () => {
   });
 
   test('styling applied', async () => {
-    const el = (await fixture(html`<animated-sudoku></animated-sudoku>`)) as AnimatedSudoku;
+    const el = (await fixture(
+      html`<animated-sudoku></animated-sudoku>`
+    )) as AnimatedSudoku;
     await el.updateComplete;
     assert.equal(getComputedStyle(el).paddingTop, '16px');
   });

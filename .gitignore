@@ -4,8 +4,9 @@
 custom-elements.json
 # top level source
 animated-sudoku.js
-animated-sudoku.js.map
-animated-sudoku.d.ts
-animated-sudoku.d.ts.map
+sudoku-square.js
+*.js.map
+*.d.ts
+*.d.ts.map
 # only generated for size check
 animated-sudoku.bundled.js
