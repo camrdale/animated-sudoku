@@ -1,5 +1,5 @@
 import {LitElement, html, css} from 'lit';
-import {customElement, state} from 'lit/decorators.js';
+import {customElement, state, property} from 'lit/decorators.js';
 import './sudoku-square';
 import {CellChangeEvent} from './sudoku-square';
 
@@ -32,10 +32,21 @@ export class AnimatedSudoku extends LitElement {
     }
 
     :host .controls {
+      display: block;
+      width: calc(var(--cell-size) * 4);
+      font-size: calc(var(--cell-size) * 0.2);
+    }
+
+    :host .mode-selector {
       display: flex;
       align-items: stretch;
       justify-content: center;
-      width: calc(var(--cell-size) * 4);
+    }
+
+    :host .keyboard {
+      display: flex;
+      align-items: stretch;
+      justify-content: center;
     }
 
     :host .grid {
@@ -109,6 +120,34 @@ export class AnimatedSudoku extends LitElement {
   @state()
   protected _candidates = new Array<number>(81);
 
+  @property({type: Boolean})
+  autoCandidateMode = false;
+
+  constructor() {
+    super();
+    const queryString = window.location.search;
+    const urlParams = new URLSearchParams(queryString);
+    if (urlParams.has('s')) {
+      const s = urlParams.get('s');
+      if (s?.length != 81) {
+        window.console.log('Failed to parse input sudoku board: ' + s);
+        return;
+      }
+      for (let i = 0; i < 81; i++) {
+        const val = parseInt(s.charAt(i));
+        if (isNaN(val)) {
+          window.console.log(
+            'Failed to parse input sudoku square ' + i + ': ' + s.charAt(i)
+          );
+          return;
+        }
+        if (val > 0) {
+          this._cells[i] = val;
+        }
+      }
+    }
+  }
+
   readonly onCellChange = (e: CellChangeEvent) => {
     switch (this._mode) {
       case EntryMode.Normal: {
@@ -118,6 +157,9 @@ export class AnimatedSudoku extends LitElement {
         const updateNeeded = e.value != this._cells[e.index];
         this._cells[e.index] = e.value;
         if (updateNeeded) {
+          if (this.autoCandidateMode) {
+            this.autoUpdateCandidates();
+          }
           this.requestUpdate();
         }
         break;
@@ -142,6 +184,67 @@ export class AnimatedSudoku extends LitElement {
   readonly selectCandidate = (_e: Event) => {
     this._mode = EntryMode.Candidate;
   };
+
+  readonly autoCandidateModeChanged = (_e: Event) => {
+    this.autoCandidateMode = !this.autoCandidateMode;
+    if (!this.autoCandidateMode) {
+      this._candidates = new Array<number>(81);
+      return;
+    }
+    this.autoUpdateCandidates();
+    this.requestUpdate();
+  };
+
+  private autoUpdateCandidates() {
+    for (let index = 0; index < 81; index++) {
+      let candidateBits = 0;
+      const rowStart = index - (index % 9);
+      for (let rowIndex = rowStart; rowIndex < rowStart + 9; rowIndex++) {
+        if (rowIndex == index) {
+          continue;
+        }
+        const val = this._cells[rowIndex];
+        if (val > 0) {
+          candidateBits |= 2 ** (val - 1);
+        }
+      }
+      const columnStart = index % 9;
+      for (let columnIndex = columnStart; columnIndex < 81; columnIndex += 9) {
+        if (columnIndex == index) {
+          continue;
+        }
+        const val = this._cells[columnIndex];
+        if (val > 0) {
+          candidateBits |= 2 ** (val - 1);
+        }
+      }
+      const row = ~~(index / 9);
+      const groupRowStart = row - (row % 3);
+      const col = index % 9;
+      const groupColStart = col - (col % 3);
+      for (
+        let groupRow = groupRowStart;
+        groupRow < groupRowStart + 3;
+        groupRow++
+      ) {
+        for (
+          let groupCol = groupColStart;
+          groupCol < groupColStart + 3;
+          groupCol++
+        ) {
+          const groupIndex = groupRow * 9 + groupCol;
+          if (groupIndex == index) {
+            continue;
+          }
+          const val = this._cells[groupIndex];
+          if (val > 0) {
+            candidateBits |= 2 ** (val - 1);
+          }
+        }
+      }
+      this._candidates[index] = ~candidateBits & (2 ** 9 - 1);
+    }
+  }
 
   override render() {
     const rows = [0, 1, 2, 3, 4, 5, 6, 7, 8].map((y) => {
@@ -181,20 +284,33 @@ export class AnimatedSudoku extends LitElement {
         <div class="grid">${rows}</div>
         <div class="spacer"></div>
         <div class="controls">
-          <button
-            type="button"
-            ?data-active="${this._mode == EntryMode.Normal}"
-            @click="${this.selectNormal}"
-          >
-            Normal
-          </button>
-          <button
-            type="button"
-            ?data-active="${this._mode == EntryMode.Candidate}"
-            @click="${this.selectCandidate}"
-          >
-            Candidates
-          </button>
+          <div class="mode-selector">
+            <button
+              type="button"
+              ?data-active="${this._mode == EntryMode.Normal}"
+              @click="${this.selectNormal}"
+            >
+              Normal
+            </button>
+            <button
+              type="button"
+              ?data-active="${this._mode == EntryMode.Candidate}"
+              @click="${this.selectCandidate}"
+            >
+              Candidates
+            </button>
+          </div>
+          <div class="keyboard">
+            <input
+              type="checkbox"
+              id="subscribeNews"
+              name="subscribe"
+              value="newsletter"
+              .checked="${this.autoCandidateMode}"
+              @change="${this.autoCandidateModeChanged}"
+            />
+            <label for="subscribeNews">Auto Candidate Mode</label>
+          </div>
         </div>
       </div>
     `;
