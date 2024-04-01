@@ -120,8 +120,14 @@ export class AnimatedSudoku extends LitElement {
   @state()
   protected _candidates = new Array<number>(81);
 
+  @state()
+  protected _autoCandidatesOverrides = new Array<number>(81);
+
   @property({type: Boolean})
   autoCandidateMode = false;
+
+  @property({type: Boolean})
+  autofillOnlyCandidatesMode = false;
 
   constructor() {
     super();
@@ -168,9 +174,13 @@ export class AnimatedSudoku extends LitElement {
         if (e.value < 1 || e.value > 9) {
           return;
         }
-        const candidates = this._candidates[e.index];
         const candidateBit = 2 ** (e.value - 1);
-        this._candidates[e.index] = candidateBit ^ candidates;
+        if ((candidateBit & this._candidates[e.index]) > 0) {
+          this._autoCandidatesOverrides[e.index] |= candidateBit;
+        } else {
+          this._autoCandidatesOverrides[e.index] &= ~candidateBit;
+        }
+        this._candidates[e.index] ^= candidateBit;
         this.requestUpdate();
         break;
       }
@@ -193,6 +203,14 @@ export class AnimatedSudoku extends LitElement {
     }
     this.autoUpdateCandidates();
     this.requestUpdate();
+  };
+
+  readonly autofillOnlyCandidatesModeChanged = (_e: Event) => {
+    this.autofillOnlyCandidatesMode = !this.autofillOnlyCandidatesMode;
+    if (!this.autofillOnlyCandidatesMode) {
+      return;
+    }
+    this.autofillOnlyCandidates();
   };
 
   private autoUpdateCandidates() {
@@ -243,6 +261,25 @@ export class AnimatedSudoku extends LitElement {
         }
       }
       this._candidates[index] = ~candidateBits & (2 ** 9 - 1);
+      this._candidates[index] &= ~this._autoCandidatesOverrides[index];
+    }
+    if (this.autofillOnlyCandidatesMode) {
+      this.autofillOnlyCandidates();
+    }
+  }
+
+  private autofillOnlyCandidates() {
+    for (let index = 0; index < 81; index++) {
+      if (!(this._cells[index] > 0) && this._candidates[index] > 0) {
+        const candidates = this._candidates[index];
+        if ((candidates & (candidates - 1)) == 0) {
+          const val = ~~(Math.log(candidates) / Math.log(2)) + 1;
+          this._cells[index] = val;
+          this.autoUpdateCandidates();
+          this.requestUpdate();
+          return;
+        }
+      }
     }
   }
 
@@ -303,13 +340,19 @@ export class AnimatedSudoku extends LitElement {
           <div class="keyboard">
             <input
               type="checkbox"
-              id="subscribeNews"
-              name="subscribe"
-              value="newsletter"
+              id="autoCandidateMode"
               .checked="${this.autoCandidateMode}"
               @change="${this.autoCandidateModeChanged}"
             />
-            <label for="subscribeNews">Auto Candidate Mode</label>
+            <label for="autoCandidateMode">Auto Candidate Mode</label>
+            <input
+              type="checkbox"
+              id="autofillOnlyCandidates"
+              .checked="${this.autofillOnlyCandidatesMode}"
+              ?disabled="${!this.autoCandidateMode}"
+              @change="${this.autofillOnlyCandidatesModeChanged}"
+            />
+            <label for="autoCandidateMode">Autofill Only Candidates</label>
           </div>
         </div>
       </div>
