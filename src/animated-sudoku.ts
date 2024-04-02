@@ -118,6 +118,12 @@ export class AnimatedSudoku extends LitElement {
   protected _cells = new Array<number>(81);
 
   @state()
+  protected _prefilledCells = new Array<boolean>(81);
+
+  @state()
+  protected _conflicts = new Array<boolean>(81);
+
+  @state()
   protected _candidates = new Array<number>(81);
 
   @state()
@@ -149,8 +155,10 @@ export class AnimatedSudoku extends LitElement {
         }
         if (val > 0) {
           this._cells[i] = val;
+          this._prefilledCells[i] = true;
         }
       }
+      this.checkForConflicts();
     }
   }
 
@@ -163,6 +171,7 @@ export class AnimatedSudoku extends LitElement {
         const updateNeeded = e.value != this._cells[e.index];
         this._cells[e.index] = e.value;
         if (updateNeeded) {
+          this.checkForConflicts();
           if (this.autoCandidateMode) {
             this.autoUpdateCandidates();
           }
@@ -213,51 +222,31 @@ export class AnimatedSudoku extends LitElement {
     this.autofillOnlyCandidates();
   };
 
+  private checkForConflicts() {
+    for (let index = 0; index < 81; index++) {
+      this._conflicts[index] = false;
+
+      const val = this._cells[index];
+      if (!(val > 0)) {
+        continue;
+      }
+
+      for (let relatedIndex of this.getRelatedCells(index)) {
+        if (this._cells[relatedIndex] == val) {
+          this._conflicts[index] = true;
+          break;
+        }
+      }
+    }
+  }
+
   private autoUpdateCandidates() {
     for (let index = 0; index < 81; index++) {
       let candidateBits = 0;
-      const rowStart = index - (index % 9);
-      for (let rowIndex = rowStart; rowIndex < rowStart + 9; rowIndex++) {
-        if (rowIndex == index) {
-          continue;
-        }
-        const val = this._cells[rowIndex];
+      for (let relatedIndex of this.getRelatedCells(index)) {
+        const val = this._cells[relatedIndex];
         if (val > 0) {
           candidateBits |= 2 ** (val - 1);
-        }
-      }
-      const columnStart = index % 9;
-      for (let columnIndex = columnStart; columnIndex < 81; columnIndex += 9) {
-        if (columnIndex == index) {
-          continue;
-        }
-        const val = this._cells[columnIndex];
-        if (val > 0) {
-          candidateBits |= 2 ** (val - 1);
-        }
-      }
-      const row = ~~(index / 9);
-      const groupRowStart = row - (row % 3);
-      const col = index % 9;
-      const groupColStart = col - (col % 3);
-      for (
-        let groupRow = groupRowStart;
-        groupRow < groupRowStart + 3;
-        groupRow++
-      ) {
-        for (
-          let groupCol = groupColStart;
-          groupCol < groupColStart + 3;
-          groupCol++
-        ) {
-          const groupIndex = groupRow * 9 + groupCol;
-          if (groupIndex == index) {
-            continue;
-          }
-          const val = this._cells[groupIndex];
-          if (val > 0) {
-            candidateBits |= 2 ** (val - 1);
-          }
         }
       }
       this._candidates[index] = ~candidateBits & (2 ** 9 - 1);
@@ -266,6 +255,49 @@ export class AnimatedSudoku extends LitElement {
     if (this.autofillOnlyCandidatesMode) {
       this.autofillOnlyCandidates();
     }
+  }
+
+  private getRelatedCells(index: number) {
+    let related = new Set<number>();
+
+    const rowStart = index - (index % 9);
+    for (let rowIndex = rowStart; rowIndex < rowStart + 9; rowIndex++) {
+      if (rowIndex == index) {
+        continue;
+      }
+      related.add(rowIndex);
+    }
+
+    const columnStart = index % 9;
+    for (let columnIndex = columnStart; columnIndex < 81; columnIndex += 9) {
+      if (columnIndex == index) {
+        continue;
+      }
+      related.add(columnIndex);
+    }
+
+    const row = ~~(index / 9);
+    const groupRowStart = row - (row % 3);
+    const col = index % 9;
+    const groupColStart = col - (col % 3);
+    for (
+      let groupRow = groupRowStart;
+      groupRow < groupRowStart + 3;
+      groupRow++
+    ) {
+      for (
+        let groupCol = groupColStart;
+        groupCol < groupColStart + 3;
+        groupCol++
+      ) {
+        const groupIndex = groupRow * 9 + groupCol;
+        if (groupIndex == index) {
+          continue;
+        }
+        related.add(groupIndex);
+      }
+    }
+    return related;
   }
 
   private autofillOnlyCandidates() {
@@ -299,6 +331,8 @@ export class AnimatedSudoku extends LitElement {
               row=${y}
               column=${x}
               value=${value}
+              ?prefilled=${this._prefilledCells[index]}
+              ?conflict=${this._conflicts[index]}
               candidates=${candidates}
               @cellchange="${this.onCellChange}"
             >

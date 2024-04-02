@@ -1,5 +1,6 @@
 import {LitElement, html, css} from 'lit';
 import {customElement, property} from 'lit/decorators.js';
+import {ifDefined} from 'lit/directives/if-defined.js';
 
 export class CellChangeEvent extends Event {
   constructor(readonly index: number, readonly value: number) {
@@ -32,6 +33,22 @@ export class SudokuSquare extends LitElement {
     :host .input-value:focus {
       background-color: lightblue;
       outline: none;
+    }
+
+    :host .input-value.prefilled {
+      background-color: lightgrey;
+    }
+
+    :host .input-value.conflict {
+      background-color: lightcoral;
+    }
+
+    :host .input-value.conflict:focus {
+      background-color: pink;
+    }
+
+    :host .input-value.prefilled.conflict {
+      background-color: red;
     }
 
     :host table {
@@ -74,6 +91,18 @@ export class SudokuSquare extends LitElement {
   value = 0;
 
   /**
+   * The square's value was prefilled.
+   */
+  @property({type: Boolean})
+  prefilled = false;
+
+  /**
+   * The square contains a conflict.
+   */
+  @property({type: Boolean})
+  conflict = false;
+
+  /**
    * The candidate values for the square.
    */
   @property({type: Number})
@@ -99,7 +128,13 @@ export class SudokuSquare extends LitElement {
       return this.renderCandidates();
     }
     return html`
-      <div class="input-value" tabindex="0" @keydown="${this.onKeyDown}">
+      <div
+        class="input-value ${this.conflict ? 'conflict' : ''} ${this.prefilled
+          ? 'prefilled'
+          : ''}"
+        tabindex=${ifDefined(!this.prefilled ? '0' : undefined)}
+        @keydown=${!this.prefilled ? this.onKeyDown : undefined}
+      >
         ${this.value === 0 ? '' : this.value}
       </div>
     `;
