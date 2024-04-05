@@ -1,10 +1,17 @@
 import {LitElement, html, css} from 'lit';
-import {customElement, property} from 'lit/decorators.js';
+import {customElement, property, state} from 'lit/decorators.js';
 import {ifDefined} from 'lit/directives/if-defined.js';
+import {styleMap, StyleInfo} from 'lit/directives/style-map.js';
 
 export class CellChangeEvent extends Event {
   constructor(readonly index: number, readonly value: number) {
     super('cellchange');
+  }
+}
+
+export class AnimationCompleteEvent extends Event {
+  constructor(readonly index: number) {
+    super('animationcomplete');
   }
 }
 
@@ -103,6 +110,15 @@ export class SudokuSquare extends LitElement {
   conflict = false;
 
   /**
+   * The square's value should be animated as being added.
+   */
+  @property({type: Boolean})
+  animateValue = false;
+
+  @state()
+  protected _animationComplete = false;
+
+  /**
    * The candidate values for the square.
    */
   @property({type: Number})
@@ -123,17 +139,34 @@ export class SudokuSquare extends LitElement {
     this.dispatchEvent(new CellChangeEvent(index, val));
   };
 
+  readonly onTransitionEnd = (e: TransitionEvent) => {
+    e.preventDefault();
+    const index = this.row * 9 + this.column;
+    this.dispatchEvent(new AnimationCompleteEvent(index));
+  };
+
   override render() {
     if (this.value == 0 && this.candidates > 0) {
       return this.renderCandidates();
+    }
+    let styles: StyleInfo = {};
+    if (this.value > 0) {
+      if (this.animateValue) {
+        styles['opacity'] = 0;
+      } else {
+        styles['opacity'] = 1;
+        styles['transition'] = 'opacity 1s';
+      }
     }
     return html`
       <div
         class="input-value ${this.conflict ? 'conflict' : ''} ${this.prefilled
           ? 'prefilled'
           : ''}"
+        style=${styleMap(styles)}
         tabindex=${ifDefined(!this.prefilled ? '0' : undefined)}
         @keydown=${!this.prefilled ? this.onKeyDown : undefined}
+        @transitionend=${this.onTransitionEnd}
       >
         ${this.value === 0 ? '' : this.value}
       </div>

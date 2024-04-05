@@ -1,7 +1,7 @@
 import {LitElement, html, css} from 'lit';
 import {customElement, state, property} from 'lit/decorators.js';
 import './sudoku-square';
-import {CellChangeEvent} from './sudoku-square';
+import {AnimationCompleteEvent, CellChangeEvent} from './sudoku-square';
 
 enum EntryMode {
   Normal,
@@ -135,6 +135,9 @@ export class AnimatedSudoku extends LitElement {
   @property({type: Boolean})
   autofillOnlyCandidatesMode = false;
 
+  @state()
+  protected _animatedSquare = -1;
+
   constructor() {
     super();
     const queryString = window.location.search;
@@ -174,6 +177,9 @@ export class AnimatedSudoku extends LitElement {
           this.checkForConflicts();
           if (this.autoCandidateMode) {
             this.autoUpdateCandidates();
+            if (this.autofillOnlyCandidatesMode) {
+              this.autofillOnlyCandidates();
+            }
           }
           this.requestUpdate();
         }
@@ -211,6 +217,9 @@ export class AnimatedSudoku extends LitElement {
       return;
     }
     this.autoUpdateCandidates();
+    if (this.autofillOnlyCandidatesMode) {
+      this.autofillOnlyCandidates();
+    }
     this.requestUpdate();
   };
 
@@ -223,6 +232,7 @@ export class AnimatedSudoku extends LitElement {
   };
 
   private checkForConflicts() {
+    let found = false;
     for (let index = 0; index < 81; index++) {
       this._conflicts[index] = false;
 
@@ -234,10 +244,12 @@ export class AnimatedSudoku extends LitElement {
       for (let relatedIndex of this.getRelatedCells(index)) {
         if (this._cells[relatedIndex] == val) {
           this._conflicts[index] = true;
+          found = true;
           break;
         }
       }
     }
+    return found;
   }
 
   private autoUpdateCandidates() {
@@ -252,9 +264,7 @@ export class AnimatedSudoku extends LitElement {
       this._candidates[index] = ~candidateBits & (2 ** 9 - 1);
       this._candidates[index] &= ~this._autoCandidatesOverrides[index];
     }
-    if (this.autofillOnlyCandidatesMode) {
-      this.autofillOnlyCandidates();
-    }
+    this.requestUpdate();
   }
 
   private getRelatedCells(index: number) {
@@ -300,19 +310,53 @@ export class AnimatedSudoku extends LitElement {
     return related;
   }
 
-  private autofillOnlyCandidates() {
+  readonly animationComplete = async (_e: AnimationCompleteEvent) => {
+    if (this.autofillOnlyCandidatesMode) {
+      await this.autofillOnlyCandidates();
+    }
+  };
+
+  private async autofillOnlyCandidates() {
+    if (this._conflicts.some((conflict) => conflict)) {
+      return;
+    }
+    let autofillCells = [];
     for (let index = 0; index < 81; index++) {
-      if (!(this._cells[index] > 0) && this._candidates[index] > 0) {
-        const candidates = this._candidates[index];
-        if ((candidates & (candidates - 1)) == 0) {
-          const val = ~~(Math.log(candidates) / Math.log(2)) + 1;
-          this._cells[index] = val;
-          this.autoUpdateCandidates();
+      if (!(this._cells[index] > 0)) {
+        if (!(this._candidates[index] > 0)) {
+          this._conflicts[index] = true;
           this.requestUpdate();
           return;
         }
+        const candidates = this._candidates[index];
+        if ((candidates & (candidates - 1)) == 0) {
+          autofillCells.push(index);
+        }
       }
     }
+    if (autofillCells.length == 0) {
+      return;
+    }
+
+    let index = autofillCells[Math.floor(Math.random() * autofillCells.length)];
+    const val = ~~(Math.log(this._candidates[index]) / Math.log(2)) + 1;
+    this._cells[index] = val;
+    if (this.checkForConflicts()) {
+      this.requestUpdate();
+      return;
+    }
+
+    this.autoUpdateCandidates();
+    this._animatedSquare = index;
+
+    // Wait for a paint
+    this.requestUpdate();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    this._animatedSquare = -1;
+    // Wait for a paint
+    this.requestUpdate();
+    await new Promise((resolve) => setTimeout(resolve, 0));
   }
 
   override render() {
@@ -333,8 +377,10 @@ export class AnimatedSudoku extends LitElement {
               value=${value}
               ?prefilled=${this._prefilledCells[index]}
               ?conflict=${this._conflicts[index]}
+              ?animateValue=${this._animatedSquare == index}
               candidates=${candidates}
               @cellchange="${this.onCellChange}"
+              @animationcomplete="${this.animationComplete}"
             >
             </sudoku-square>
           </div>
